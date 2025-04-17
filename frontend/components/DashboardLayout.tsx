@@ -2,6 +2,7 @@
 
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
 import { useEffect, useState } from 'react';
 import { getCookie } from '../app/login/auth-utils';
 import { ROLES } from '../shared/roles';
@@ -15,6 +16,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user } = useAuth();
   
   useEffect(() => {
+    // Check if a valid token exists, if not redirect to login
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log("DashboardLayout: No token found, redirecting to login");
+        window.location.href = '/login';
+        return;
+      }
+    };
+
+    checkAuth();
+    
     // Determine user role from multiple sources
     const determineUserRole = () => {
       console.log("DashboardLayout: Determining user role");
@@ -50,9 +63,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             console.log("DashboardLayout: Got role from localStorage user object:", parsedUser.role);
             setRole(parsedUser.role);
             setUserName(parsedUser.name || 'User');
+          } else {
+            // No user data found, redirect to login
+            console.log("DashboardLayout: No user data found, redirecting to login");
+            window.location.href = '/login';
           }
         } catch (err) {
           console.error("Error parsing user from localStorage:", err);
+          // Error in auth data, redirect to login
+          window.location.href = '/login';
         }
       }
     };
@@ -89,12 +108,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
+  // If still loading after 3 seconds, show a more detailed message
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  
+  useEffect(() => {
+    // Set a timeout to update the loading message if it takes too long
+    if (!role) {
+      const timeoutId = setTimeout(() => setLoadingTimeout(true), 3000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [role]);
+
   // If role is still not determined, show loading
   if (!role) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        <p className="ml-3">Loading dashboard...</p>
+      <div className="flex flex-col justify-center items-center h-screen bg-slate-50 dark:bg-slate-950">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="mb-2 text-gray-700 dark:text-gray-300">Loading dashboard...</p>
+        
+        {loadingTimeout && (
+          <div className="max-w-md text-center mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-yellow-800 font-medium">Taking longer than expected</p>
+            <p className="text-sm text-yellow-700 mt-1">
+              If this persists, try refreshing the page or logging out and back in.
+            </p>
+            <div className="mt-4">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors mr-3"
+              >
+                Refresh Page
+              </button>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  window.location.href = '/login';
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -14,6 +14,17 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields. Please provide name, email, password, and role." });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Please provide a valid email address." });
+    }
+
+    // Password strength validation
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long." });
+    }
+
     // Map frontend role names to database role names if needed
     const roleMap = {
       "Gym Owner": "gymOwner",
@@ -35,11 +46,16 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Gym Name is required for Gym Owners." });
     }
 
+    // Check if the user already exists
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: "Email already registered." });
+    if (userExists) {
+      return res.status(409).json({ message: "Email is already registered. Please use a different email or login with your existing account." });
+    }
 
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Create the new user object
     const newUser = new User({
       name,
       email,
@@ -53,23 +69,44 @@ exports.register = async (req, res) => {
       createdAt: new Date()
     });
 
-    await newUser.save();
+    // Save the user to the database
+    const savedUser = await newUser.save();
+    console.log(`User registered successfully: ${savedUser.email} (${savedUser.role})`);
+
+    // For development/testing, log the approval status
+    if (savedUser.role === "gymOwner") {
+      console.log(`Gym owner pending approval: ${savedUser.email}, Gym: ${savedUser.gymName}`);
+    }
 
     // Different message based on role
     const message = dbRole === "gymOwner" 
       ? "Gym owner registered successfully. Await Super Admin approval."
       : "Registered successfully. You can now log in.";
 
-    return res.status(201).json({ message });
+    return res.status(201).json({ 
+      message,
+      userId: savedUser._id,
+      role: savedUser.role,
+      status: savedUser.status
+    });
   } catch (err) {
     console.error("Registration error:", err);
     
     // More detailed error message
-    const errorMessage = err.code === 11000 
-      ? "Email already exists" 
-      : err.message || "Server error during registration";
-      
-    return res.status(500).json({ message: errorMessage });
+    let errorMessage = "Server error during registration";
+    let statusCode = 500;
+    
+    if (err.code === 11000) {
+      errorMessage = "Email already exists. Please use a different email address.";
+      statusCode = 409;
+    } else if (err.name === 'ValidationError') {
+      errorMessage = Object.values(err.errors).map(val => val.message).join(', ');
+      statusCode = 400;
+    } else if (err.name === 'MongoServerError') {
+      errorMessage = "Database error. Please try again later.";
+    }
+    
+    return res.status(statusCode).json({ message: errorMessage });
   }
 };
 

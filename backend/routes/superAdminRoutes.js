@@ -12,16 +12,16 @@ const isSuperAdmin = (req, res, next) => {
 };
 
 // Get all pending gym owner approvals
-router.get("/approvals", superAdmin.getPendingOwners);
+router.get("/approvals", isSuperAdmin, superAdmin.getPendingOwners);
 
 // Approve a gym owner
-router.post("/approve/:id", superAdmin.approveOwner);
+router.post("/approve/:id", isSuperAdmin, superAdmin.approveOwner);
 
-// Reject a gym owner
-router.delete("/reject/:id", superAdmin.rejectOwner);
+// Reject a gym owner - Using POST to accept the reason parameter
+router.post("/reject/:id", isSuperAdmin, superAdmin.rejectOwner);
 
 // Reset a gym owner to pending status
-router.put("/reset/:id", async (req, res) => {
+router.put("/reset/:id", isSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -29,7 +29,10 @@ router.put("/reset/:id", async (req, res) => {
       id,
       { 
         status: 'pending',
-        isApproved: false
+        isApproved: false,
+        approvedAt: null,
+        approvedBy: null,
+        rejectionReason: ''
       },
       { new: true }
     ).select('-password');
@@ -37,6 +40,9 @@ router.put("/reset/:id", async (req, res) => {
     if (!updatedOwner) {
       return res.status(404).json({ message: 'Gym owner not found' });
     }
+    
+    // Log the reset for auditing
+    console.log(`Gym owner ${updatedOwner.email} (${updatedOwner._id}) reset to pending by admin ${req.user ? req.user.id : 'Unknown'}`);
     
     res.status(200).json({ 
       message: 'Gym owner status reset successfully',
@@ -49,9 +55,9 @@ router.put("/reset/:id", async (req, res) => {
 });
 
 // Get all approved gym owners
-router.get("/owners", superAdmin.getApprovedOwners);
+router.get("/owners", isSuperAdmin, superAdmin.getApprovedOwners);
 
 // Get system-wide statistics
-router.get("/stats", superAdmin.getStats);
+router.get("/stats", isSuperAdmin, superAdmin.getStats);
 
 module.exports = router; 

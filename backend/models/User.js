@@ -4,34 +4,51 @@ const Schema = mongoose.Schema;
 const UserSchema = new Schema({
   name: {
     type: String,
-    required: true
+    required: [true, 'Name is required'],
+    trim: true,
+    minlength: [2, 'Name must be at least 2 characters']
   },
   email: {
     type: String,
-    required: true,
-    unique: true
+    required: [true, 'Email is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+    match: [/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, 'Please provide a valid email address']
   },
   password: {
     type: String,
-    required: true
+    required: [true, 'Password is required'],
+    minlength: [6, 'Password must be at least 6 characters']
   },
   role: {
     type: String,
-    enum: ['member', 'trainer', 'gymOwner', 'superAdmin'],
+    enum: {
+      values: ['member', 'trainer', 'gymOwner', 'superAdmin'],
+      message: '{VALUE} is not a valid role'
+    },
     default: 'member'
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
+    enum: {
+      values: ['pending', 'approved', 'rejected'],
+      message: '{VALUE} is not a valid status'
+    },
     default: 'pending'
   },
   gymName: {
     type: String,
-    default: ''
+    default: '',
+    required: function() {
+      return this.role === 'gymOwner';
+    }
   },
   isApproved: {
     type: Boolean,
-    default: false
+    default: function() {
+      return this.role !== 'gymOwner';
+    }
   },
   location: {
     type: String,
@@ -77,7 +94,30 @@ const UserSchema = new Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  approvedAt: {
+    type: Date,
+    default: null
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', // reference to superAdmin
+    default: null
+  },
+  rejectionReason: {
+    type: String,
+    default: ''
   }
+});
+
+// Pre-save hook to validate gym owner data
+UserSchema.pre('save', function(next) {
+  if (this.role === 'gymOwner' && !this.gymName) {
+    const error = new Error('Gym name is required for gym owners');
+    error.name = 'ValidationError';
+    return next(error);
+  }
+  next();
 });
 
 module.exports = mongoose.model('User', UserSchema); 

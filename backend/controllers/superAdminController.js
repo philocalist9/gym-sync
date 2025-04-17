@@ -19,12 +19,19 @@ exports.getPendingOwners = async (req, res) => {
 exports.approveOwner = async (req, res) => {
   try {
     const { id } = req.params;
+    const { notes } = req.body; // Optional notes about the approval
+    
+    // Get the super admin ID from the request (assuming auth middleware sets this)
+    const superAdminId = req.user ? req.user.id : null;
     
     const updatedOwner = await User.findByIdAndUpdate(
       id,
       { 
         status: 'approved',
-        isApproved: true
+        isApproved: true,
+        approvedAt: new Date(),
+        approvedBy: superAdminId,
+        rejectionReason: '' // Clear any previous rejection reason
       },
       { new: true }
     ).select('-password');
@@ -32,6 +39,15 @@ exports.approveOwner = async (req, res) => {
     if (!updatedOwner) {
       return res.status(404).json({ message: 'Gym owner not found' });
     }
+    
+    // Log the approval for auditing
+    console.log(`Gym owner ${updatedOwner.email} (${updatedOwner._id}) approved by admin ${superAdminId || 'Unknown'}`);
+    
+    // TODO: Send email notification to the gym owner
+    // This would be implemented with an email service
+    
+    // TODO: Create a notification in the system
+    // This would use the notification system you have
     
     res.status(200).json({ 
       message: 'Gym owner approved successfully',
@@ -47,12 +63,24 @@ exports.approveOwner = async (req, res) => {
 exports.rejectOwner = async (req, res) => {
   try {
     const { id } = req.params;
+    const { reason } = req.body; // Reason for rejection (required)
+    
+    // Validate that a reason was provided
+    if (!reason) {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
+    
+    // Get the super admin ID from the request (assuming auth middleware sets this)
+    const superAdminId = req.user ? req.user.id : null;
     
     const updatedOwner = await User.findByIdAndUpdate(
       id,
       { 
         status: 'rejected',
-        isApproved: false
+        isApproved: false,
+        approvedAt: null, // Clear any previous approval date
+        approvedBy: null, // Clear any previous approver
+        rejectionReason: reason
       },
       { new: true }
     ).select('-password');
@@ -60,6 +88,15 @@ exports.rejectOwner = async (req, res) => {
     if (!updatedOwner) {
       return res.status(404).json({ message: 'Gym owner not found' });
     }
+    
+    // Log the rejection for auditing
+    console.log(`Gym owner ${updatedOwner.email} (${updatedOwner._id}) rejected by admin ${superAdminId || 'Unknown'}. Reason: ${reason}`);
+    
+    // TODO: Send email notification to the gym owner with the reason
+    // This would be implemented with an email service
+    
+    // TODO: Create a notification in the system
+    // This would use the notification system you have
     
     res.status(200).json({ 
       message: 'Gym owner rejected successfully',

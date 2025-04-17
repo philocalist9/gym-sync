@@ -2,85 +2,159 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUserRole } from '../../app/login/auth-utils';
-import { ROLES } from '../../shared/roles';
+import { ROLES } from '@/shared/roles';
+import { CircleOff } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [countdown, setCountdown] = useState(10);
+
   useEffect(() => {
-    // Get role from localStorage or cookies
-    try {
-      const role = getUserRole();
-      console.log('Dashboard redirect - Current role detected:', role);
-      setUserRole(role);
-      
-      // Debug the stored user object
-      const storedUser = localStorage.getItem('user');
-      console.log('Stored user:', storedUser ? JSON.parse(storedUser) : 'None');
-      
-      // If running on client side
-      if (typeof window !== 'undefined') {
-        // Set a small delay to ensure hydration is complete
-        setTimeout(() => {
-          if (role === ROLES.SUPER_ADMIN || role === 'superAdmin') {
-            console.log('Redirecting to super-admin dashboard...');
-            document.location.href = '/dashboard/super-admin';
-          } else if (role === ROLES.GYM_OWNER || role === 'gymOwner') {
-            console.log('Redirecting to gym-owner dashboard...');
-            document.location.href = '/dashboard/gym-owner';
-          } else if (role === ROLES.TRAINER || role === 'trainer') {
-            console.log('Redirecting to trainer dashboard...');
-            document.location.href = '/dashboard/trainer';
-          } else if (role === ROLES.MEMBER || role === 'member') {
-            console.log('Redirecting to member dashboard...');
-            document.location.href = '/dashboard/member';
+    const redirectUser = async () => {
+      try {
+        console.log("Dashboard: Attempting to redirect based on user role");
+        
+        // Try to get the role from various sources
+        const getUserRole = () => {
+          // Try localStorage first
+          const localStorageRole = localStorage.getItem('role');
+          if (localStorageRole) {
+            console.log("Dashboard: Found role in localStorage:", localStorageRole);
+            return localStorageRole;
+          }
+          
+          // Then try from cookies
+          const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+            const [key, value] = cookie.trim().split('=');
+            acc[key] = value;
+            return acc;
+          }, {} as Record<string, string>);
+          
+          if (cookies.role) {
+            console.log("Dashboard: Found role in cookies:", cookies.role);
+            return cookies.role;
+          }
+          
+          // Try from user object
+          try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+              const user = JSON.parse(userStr);
+              if (user.role) {
+                console.log("Dashboard: Found role in user object:", user.role);
+                return user.role;
+              }
+            }
+          } catch (err) {
+            console.error("Error parsing user from localStorage:", err);
+          }
+          
+          return null;
+        };
+        
+        const role = getUserRole();
+        
+        // If no role is found, maybe we have a token but role is not properly set
+        if (!role) {
+          const token = localStorage.getItem('token');
+          if (token) {
+            console.log("Dashboard: Token exists but no role found, defaulting to Super Admin");
+            // Default to super admin if we have a token but no role
+            setTimeout(() => {
+              window.location.href = '/dashboard/super-admin';
+            }, 1000);
+            return;
           } else {
-            // If no valid role, redirect to login
-            console.log('No valid role found, redirecting to login...');
-            document.location.href = '/login';
+            // No token and no role, redirect to login
+            console.log("Dashboard: No authentication found, redirecting to login");
+            setErrorMsg("No authentication found. Redirecting to login...");
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 2000);
+            return;
+          }
+        }
+        
+        // Use setTimeout for reliability
+        console.log("Dashboard: Redirecting to role dashboard:", role);
+        setTimeout(() => {
+          // Redirect based on role using direct URL navigation
+          switch(role) {
+            case ROLES.SUPER_ADMIN:
+            case 'superAdmin':
+              console.log("Dashboard: Redirecting to super admin dashboard");
+              window.location.href = '/dashboard/super-admin';
+              break;
+            case ROLES.GYM_OWNER:
+            case 'gymOwner':
+              console.log("Dashboard: Redirecting to gym owner dashboard");
+              window.location.href = '/dashboard/gym-owner';
+              break;
+            case ROLES.TRAINER:
+            case 'trainer':
+              console.log("Dashboard: Redirecting to trainer dashboard");
+              window.location.href = '/dashboard/trainer';
+              break;
+            case ROLES.MEMBER:
+            case 'member':
+              console.log("Dashboard: Redirecting to member dashboard");
+              window.location.href = '/dashboard/member';
+              break;
+            default:
+              console.log("Dashboard: Unknown role:", role, "defaulting to super admin");
+              // Default to super admin if unknown role
+              window.location.href = '/dashboard/super-admin';
           }
         }, 100);
+      } catch (err) {
+        console.error("Dashboard: Error during redirection:", err);
+        setErrorMsg("Error during redirection. Please try logging in again.");
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 3000);
       }
-    } catch (err) {
-      console.error('Error in dashboard redirect:', err);
-      setError('Error redirecting to dashboard');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    };
+
+    redirectUser();
+    
+    // Countdown for fallback redirect
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          // If we're still here after countdown, force redirect to login
+          window.location.href = '/login';
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [router]);
 
   return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-gray-600 mb-2">Redirecting to your dashboard...</p>
-        {userRole && <p className="text-sm text-gray-500">Detected role: {userRole}</p>}
-        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-        
-        <div className="mt-6">
-          <button
-            onClick={() => {
-              // Clear credentials
-              localStorage.removeItem('token');
-              localStorage.removeItem('role');
-              localStorage.removeItem('user');
-              
-              // Clear cookies
-              document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-              document.cookie = 'role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-              
-              // Redirect to login with parameter
-              window.location.href = '/login?showLogin=true';
-            }}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm transition-colors"
-          >
-            Logout / Clear Credentials
-          </button>
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+      <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-lg shadow-md p-8 text-center">
+        {errorMsg ? (
+          <div className="flex flex-col items-center justify-center text-red-600 dark:text-red-400">
+            <CircleOff className="h-12 w-12 mb-4" />
+            <h1 className="text-xl font-semibold mb-2">{errorMsg}</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Redirecting to login in {countdown} seconds...
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <h1 className="text-xl font-semibold mb-2">Redirecting to your dashboard</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Please wait while we redirect you to the appropriate dashboard...
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

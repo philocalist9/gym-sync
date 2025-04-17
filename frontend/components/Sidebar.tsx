@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ROLES } from '../shared/roles';
+import { useAuth } from '../context/AuthContext';
 import { 
   Home, 
   Users, 
@@ -18,6 +19,8 @@ import {
 } from 'lucide-react';
 
 const Sidebar = ({ role }: { role: string }) => {
+  const { logout } = useAuth();
+  
   // Common links for all roles
   const common = [{ name: 'Home', path: '/', icon: <Home className="w-5 h-5 mr-2" /> }];
 
@@ -96,13 +99,13 @@ const Sidebar = ({ role }: { role: string }) => {
       </nav>
       
       <div className="mt-auto pt-6 border-t border-slate-700 mt-10">
-        <Link 
-          href="/login" 
-          className="flex items-center text-gray-400 hover:text-white py-2.5 px-4 rounded hover:bg-slate-800 transition-colors"
+        <button 
+          onClick={logout}
+          className="flex items-center text-gray-400 hover:text-white py-2.5 px-4 rounded hover:bg-slate-800 transition-colors w-full text-left"
         >
           <LogOut className="w-5 h-5 mr-2" />
           <span>Logout</span>
-        </Link>
+        </button>
       </div>
     </div>
   );

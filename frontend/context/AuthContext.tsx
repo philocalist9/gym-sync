@@ -79,8 +79,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setError(null);
     
     try {
-      // For development without backend, use mock login
+      // For development without backend, use mock login for superadmin
       if (email === 'admin@gymsync.com' && password === 'admin123') {
+        console.log('Logging in as Super Admin');
+        
         // Create superadmin user
         const superAdmin = {
           _id: 'admin-id',
@@ -89,34 +91,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           role: 'superAdmin'
         };
         
-        // Store auth data in both localStorage and cookies
-        localStorage.setItem('token', 'admin-token');
-        localStorage.setItem('role', 'superAdmin'); // Explicitly store role
+        // Generate a simple mock token
+        const adminToken = 'admin-token-' + Date.now();
+        
+        // Store auth data in localStorage
+        localStorage.setItem('token', adminToken);
+        localStorage.setItem('role', 'superAdmin');
         localStorage.setItem('user', JSON.stringify(superAdmin));
         
-        // Also set cookies for App Router components
-        document.cookie = `token=admin-token; path=/; max-age=86400`;
+        // Set cookies with proper path and expiration
+        document.cookie = `token=${adminToken}; path=/; max-age=86400`;
         document.cookie = `role=superAdmin; path=/; max-age=86400`;
         
-        setToken('admin-token');
+        // Update state
+        setToken(adminToken);
         setUser(superAdmin);
         
-        // Redirect with console logging
-        console.log('Admin login successful, user object:', superAdmin);
-        console.log('Redirecting to super admin dashboard...');
+        console.log('Super Admin login successful');
+        console.log('Redirecting to dashboard in 500ms...');
         
-        // Use setTimeout for reliability 
+        // Use a longer timeout to ensure everything is set before redirect
         setTimeout(() => {
           document.location.href = 'http://localhost:3000/dashboard/super-admin';
-        }, 100);
+        }, 500);
+        
         return;
       }
       
+      // For other mock logins in development
       if (process.env.NODE_ENV === 'development' && !email.includes('@gymsync.com')) {
         await mockLogin(email, password, role);
         return;
       }
 
+      // Actual API login
       const response = await api.post('/auth/login', { 
         email, 
         password, 
@@ -125,16 +133,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       const data = response.data;
       
-      // Store auth data
+      // Store auth data in localStorage
       localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.user.role); // Explicitly store role
+      localStorage.setItem('role', data.user.role);
       localStorage.setItem('user', JSON.stringify(data.user));
       
+      // Set cookies with proper path and expiration
+      document.cookie = `token=${data.token}; path=/; max-age=86400`;
+      document.cookie = `role=${data.user.role}; path=/; max-age=86400`;
+      
+      // Update state
       setToken(data.token);
       setUser(data.user);
       
-      // Redirect based on role
-      redirectBasedOnRole(data.user.role);
+      console.log('API login successful, redirecting based on role:', data.user.role);
+      
+      // Redirect based on role with a small delay
+      setTimeout(() => {
+        redirectBasedOnRole(data.user.role);
+      }, 300);
+      
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.response && err.response.data && err.response.data.message) {
@@ -202,39 +220,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const redirectBasedOnRole = (role: string) => {
     console.log('Redirecting based on role:', role);
     
-    // Use direct URL navigation for reliability
-    switch(role) {
-      case 'superAdmin':
-        document.location.href = '/dashboard/super-admin';
-        break;
-      case 'gymOwner':
-        document.location.href = '/dashboard/gym-owner';
-        break;
-      case 'trainer':
-        document.location.href = '/dashboard/trainer';
-        break;
-      case 'member':
-        document.location.href = '/dashboard/member';
-        break;
-      default:
-        document.location.href = '/';
-    }
+    // Set a small timeout to ensure state updates have completed
+    setTimeout(() => {
+      // Use absolute URLs to be more reliable
+      switch(role) {
+        case 'superAdmin':
+          document.location.href = 'http://localhost:3000/dashboard/super-admin';
+          break;
+        case 'gymOwner':
+          document.location.href = 'http://localhost:3000/dashboard/gym-owner';
+          break;
+        case 'trainer':
+          document.location.href = 'http://localhost:3000/dashboard/trainer';
+          break;
+        case 'member':
+          document.location.href = 'http://localhost:3000/dashboard/member';
+          break;
+        default:
+          document.location.href = 'http://localhost:3000/dashboard';
+      }
+    }, 100);
   };
   
   const logout = () => {
+    console.log('Logout function called');
+    
     // Clear auth data from both localStorage and cookies
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     localStorage.removeItem('user');
+    console.log('Cleared localStorage items');
     
     // Clear cookies
     document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    console.log('Cleared cookies');
     
     setToken(null);
     setUser(null);
+    console.log('Reset auth state');
     
     // Redirect to login page
+    console.log('Redirecting to login page...');
     window.location.href = '/login';
   };
   

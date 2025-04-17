@@ -6,6 +6,7 @@ const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
 const { createSuperAdmin } = require('./controllers/auth.controller');
+const mongoose = require('mongoose');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -55,12 +56,36 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configure CORS to fix cross-origin issues with expanded origins
 app.use(cors({
-  origin: '*', // Allow all origins in development
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'http://localhost:3000', 
+      'http://localhost:3001', 
+      'http://localhost:3002',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:3002',
+      // Add your production domain when ready
+      process.env.FRONTEND_URL
+    ].filter(Boolean); // Filter out undefined values
+    
+    // Check if the origin is allowed
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      console.warn(`Origin ${origin} not allowed by CORS`);
+      callback(null, true); // Still allow in development for easier testing
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
   credentials: true,
   preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  maxAge: 86400 // Cache preflight response for 24 hours
 }));
 
 // Handle preflight requests explicitly for all routes
@@ -184,7 +209,37 @@ app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
+  const dbStatus = mongoose.connection.readyState;
+  
+  let dbStatusText;
+  switch (dbStatus) {
+    case 0:
+      dbStatusText = 'disconnected';
+      break;
+    case 1:
+      dbStatusText = 'connected';
+      break;
+    case 2:
+      dbStatusText = 'connecting';
+      break;
+    case 3:
+      dbStatusText = 'disconnecting';
+      break;
+    default:
+      dbStatusText = 'unknown';
+  }
+  
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    database: {
+      status: dbStatusText,
+      host: mongoose.connection.host || 'unknown',
+      name: mongoose.connection.name || 'unknown'
+    }
+  });
 });
 
 // Error handling middleware

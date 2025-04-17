@@ -8,6 +8,7 @@ import axios from '@/utils/axiosInstance';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { ROLES } from '@/shared/roles';
+import { useToast } from '@/components/ui/use-toast';
 
 interface GymOwner {
   _id: string;
@@ -59,8 +60,9 @@ export default function ApprovalsPage() {
   const router = useRouter();
   const [owners, setOwners] = useState<GymOwner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [processing, setProcessing] = useState<string>('');
+  const { toast } = useToast();
 
   useEffect(() => {
     // Redirect if not a super admin
@@ -122,52 +124,109 @@ export default function ApprovalsPage() {
     }
   };
 
-  const handleApproval = async (id: string, approved: boolean) => {
+  const handleApprove = async (id: string) => {
     try {
-      setIsLoading(true);
+      setProcessing(id);
       setError('');
-      setSuccess('');
       
-      // Get auth token for authorization
       const token = localStorage.getItem('token');
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-      };
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
       
-      // Use the correct API URL
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBaseUrl}/api/superadmin/approve/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
       
-      let fetchResponse;
-      if (approved) {
-        // Use POST for approve
-        fetchResponse = await fetch(`${apiBaseUrl}/api/superadmin/approve/${id}`, {
-          method: 'POST',
-          headers,
-          credentials: 'include'
-        });
-        setSuccess("Gym owner approved successfully");
-      } else {
-        // Use POST for reject (as per backend API)
-        fetchResponse = await fetch(`${apiBaseUrl}/api/superadmin/reject/${id}`, {
-          method: 'POST',
-          headers,
-          credentials: 'include'
-        });
-        setSuccess("Gym owner rejected successfully");
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
       }
       
-      if (!fetchResponse.ok) {
-        throw new Error(`Request failed with status ${fetchResponse.status}`);
-      }
-      
-      // Refresh the list
-      await fetchPendingOwners();
+      // Remove the approved owner from the list
+      setOwners(owners.filter(owner => owner._id !== id));
+      toast({
+        title: "Success",
+        description: "Gym owner application has been approved"
+      });
     } catch (err: any) {
-      console.error(`Error ${approved ? 'approving' : 'rejecting'} gym owner:`, err);
-      setError(`Failed to ${approved ? 'approve' : 'reject'} gym owner application`);
+      console.error("Error approving gym owner:", err);
+      setError('Failed to approve gym owner');
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please log in again."
+        });
+        setTimeout(() => {
+          document.location.href = '/login';
+        }, 2000);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to approve gym owner. Please try again."
+        });
+      }
     } finally {
-      setIsLoading(false);
+      setProcessing('');
+    }
+  };
+  
+  const handleReject = async (id: string) => {
+    try {
+      setProcessing(id);
+      setError('');
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBaseUrl}/api/superadmin/reject/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
+      // Remove the rejected owner from the list
+      setOwners(owners.filter(owner => owner._id !== id));
+      toast({
+        title: "Success",
+        description: "Gym owner application has been rejected"
+      });
+    } catch (err: any) {
+      console.error("Error rejecting gym owner:", err);
+      setError('Failed to reject gym owner');
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please log in again."
+        });
+        setTimeout(() => {
+          document.location.href = '/login';
+        }, 2000);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to reject gym owner. Please try again."
+        });
+      }
+    } finally {
+      setProcessing('');
     }
   };
 
@@ -182,12 +241,6 @@ export default function ApprovalsPage() {
         </div>
       </div>
 
-      {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-md">
-          {success}
-        </div>
-      )}
-      
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
           {error}
@@ -254,20 +307,20 @@ export default function ApprovalsPage() {
                     
                     <div className="flex gap-3">
                       <Button
-                        onClick={() => handleApproval(owner._id, true)}
+                        onClick={() => handleApprove(owner._id)}
                         className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
                         size="sm"
-                        disabled={isLoading}
+                        disabled={processing === owner._id}
                       >
                         <Check className="h-4 w-4" />
                         <span>Approve</span>
                       </Button>
                       <Button
-                        onClick={() => handleApproval(owner._id, false)}
+                        onClick={() => handleReject(owner._id)}
                         variant="destructive"
                         size="sm"
                         className="flex items-center gap-1"
-                        disabled={isLoading}
+                        disabled={processing === owner._id}
                       >
                         <X className="h-4 w-4" />
                         <span>Reject</span>

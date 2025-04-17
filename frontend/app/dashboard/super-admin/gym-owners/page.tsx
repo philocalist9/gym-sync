@@ -1,202 +1,259 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { User, Building, Clock, Mail, Phone, MapPin, Search, Users, AlertCircle } from 'lucide-react';
+import { User, Building, Calendar, MapPin, Phone, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
+import { ROLES } from '@/shared/roles';
+import Link from 'next/link';
 
-// Sample data for gym owners
-const sampleOwners = [
-  {
-    _id: '1',
-    name: 'Sarah Miller',
-    email: 'sarah@powergym.com',
-    gymName: 'Power Gym',
-    phone: '555-5678',
-    location: 'Los Angeles',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    status: 'approved',
-    memberCount: 145,
-    trainerCount: 12
-  },
-  {
-    _id: '2',
-    name: 'David Chen',
-    email: 'david@fitzone.com',
-    gymName: 'Fit Zone',
-    phone: '555-8765',
-    location: 'Seattle',
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-    status: 'approved',
-    memberCount: 87,
-    trainerCount: 8
-  },
-  {
-    _id: '3',
-    name: 'Jessica Lee',
-    email: 'jessica@fitnesshub.com',
-    gymName: 'Fitness Hub',
-    phone: '555-4321',
-    location: 'Boston',
-    createdAt: new Date(Date.now() - 259200000).toISOString(),
-    status: 'approved',
-    memberCount: 210,
-    trainerCount: 15
-  }
-];
+interface GymOwner {
+  _id: string;
+  name: string;
+  email: string;
+  gymName?: string;
+  phone?: string;
+  location?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+}
 
 export default function GymOwnersPage() {
-  const [owners, setOwners] = useState(sampleOwners);
-  const [success, setSuccess] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [owners, setOwners] = useState<GymOwner[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleSuspendOwner = (id: string) => {
-    setOwners(owners.map(owner => 
-      owner._id === id ? {...owner, status: 'suspended'} : owner
-    ));
-    setSuccess('Gym owner account suspended successfully');
+  useEffect(() => {
+    // Redirect if not a super admin
+    if (!loading && user && user.role !== ROLES.SUPER_ADMIN) {
+      router.push('/dashboard');
+    }
+
+    if (!loading && user) {
+      fetchGymOwners();
+    }
+  }, [user, loading, router]);
+
+  const fetchGymOwners = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      console.log("Fetching all gym owners...");
+      
+      // Get auth token for authorization
+      const authToken = localStorage.getItem('token');
+      
+      if (!authToken) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Use the correct API URL
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      
+      const response = await fetch(`${apiBaseUrl}/api/superadmin/owners`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("API Response:", data);
+      
+      if (Array.isArray(data)) {
+        setOwners(data);
+        if (data.length === 0) {
+          setError('No gym owners found.');
+        }
+      } else {
+        console.error("Unexpected API response format:", data);
+        setError('Received invalid data format from server.');
+      }
+    } catch (err: any) {
+      console.error('Error fetching gym owners:', err);
+      setError(`Failed to load gym owners: ${err.message}`);
+      
+      // Use sample data as fallback
+      setOwners([
+        {
+          _id: '1',
+          name: 'Fitness Elite',
+          email: 'john@fitnesselite.com',
+          gymName: 'Fitness Elite Gym',
+          phone: '555-1234',
+          location: 'New York',
+          status: 'approved',
+          createdAt: new Date().toISOString()
+        },
+        {
+          _id: '2',
+          name: 'Strong Core Fitness',
+          email: 'maria@strongcore.com',
+          gymName: 'Strong Core Fitness Center',
+          phone: '555-5678',
+          location: 'Los Angeles',
+          status: 'approved',
+          createdAt: new Date(Date.now() - 86400000*30).toISOString()
+        },
+        {
+          _id: '3',
+          name: 'Urban Fitness',
+          email: 'robert@urbanfitness.com',
+          gymName: 'Urban Fitness Club',
+          phone: '555-9101',
+          location: 'Chicago',
+          status: 'rejected',
+          createdAt: new Date(Date.now() - 86400000*60).toISOString()
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Filter owners based on search term
-  const filteredOwners = owners.filter(owner => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      owner.name.toLowerCase().includes(searchLower) ||
-      (owner.gymName && owner.gymName.toLowerCase().includes(searchLower)) ||
-      (owner.location && owner.location.toLowerCase().includes(searchLower)) ||
-      owner.email.toLowerCase().includes(searchLower)
-    );
-  });
+  const getStatusBadge = (status: string) => {
+    switch(status) {
+      case 'approved':
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Approved</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Rejected</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pending</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">Unknown</Badge>;
+    }
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto px-4 py-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">🏢 Gym Owners</h1>
+          <h1 className="text-3xl font-bold mb-2">🏋️‍♂️ Gym Owners</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            View and manage all registered gym owners on the platform
+            View and manage all gym owners on the platform
           </p>
         </div>
+        
+        <div className="flex gap-4">
+          <Button 
+            variant="outline" 
+            onClick={fetchGymOwners}
+            disabled={isLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          
+          <Link href="/dashboard/super-admin">
+            <Button variant="secondary">
+              Back to Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-md">
-          {success}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium">Error</p>
+            <p>{error}</p>
+          </div>
         </div>
       )}
-
-      <div className="mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search by name, gym, or location..."
-            className="w-full p-3 pl-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-gray-700 dark:text-gray-300">Loading gym owners...</span>
         </div>
-      </div>
-
-      {owners.length === 0 ? (
-        <Card>
+      ) : owners.length === 0 ? (
+        <Card className="border border-gray-200 dark:border-gray-800">
           <CardContent className="p-6 text-center">
             <div className="mb-4 flex justify-center">
               <Building className="h-16 w-16 text-gray-400" />
             </div>
-            <h3 className="text-xl font-medium mb-2">No Gym Owners</h3>
-            <p className="text-gray-500">
-              There are no approved gym owners on the platform yet.
+            <h3 className="text-xl font-medium mb-2">No Gym Owners Found</h3>
+            <p className="text-gray-500 mb-6">
+              There are no gym owners registered on the platform yet.
             </p>
-          </CardContent>
-        </Card>
-      ) : filteredOwners.length === 0 ? (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <h3 className="text-xl font-medium mb-2">No Matching Results</h3>
-            <p className="text-gray-500">
-              No gym owners match your search criteria. Try different search terms.
-            </p>
+            <Link href="/dashboard/super-admin">
+              <Button variant="outline">
+                Return to Dashboard
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {filteredOwners.map((owner) => (
-            <Card key={owner._id} className="overflow-hidden shadow hover:shadow-md transition-all">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {owners.map((owner) => (
+            <Card key={owner._id} className="overflow-hidden shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-800">
               <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row justify-between gap-6">
-                  <div className="flex gap-4">
-                    <div className="p-3 bg-blue-100 rounded-full h-12 w-12 flex items-center justify-center shrink-0">
-                      <User className="h-6 w-6 text-blue-600" />
+                <div className="flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-3 items-center">
+                      <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full h-10 w-10 flex items-center justify-center shrink-0">
+                        <User className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg leading-tight">{owner.name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{owner.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-lg mb-1">{owner.name}</h3>
-                      <div className="flex items-center gap-2 text-gray-600 mb-2">
-                        <Building className="h-4 w-4 text-gray-500" />
-                        <span>{owner.gymName || 'Unnamed Gym'}</span>
+                    {getStatusBadge(owner.status)}
+                  </div>
+                  
+                  <div className="mt-2 space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-600 dark:text-gray-400">{owner.gymName || 'No gym name provided'}</span>
+                    </div>
+                    {owner.location && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-600 dark:text-gray-400">{owner.location}</span>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 mt-3">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-gray-500" />
-                          <span className="text-gray-600">{owner.email}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          <span className="text-gray-600">Since {new Date(owner.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        {owner.location && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-gray-500" />
-                            <span className="text-gray-600">{owner.location}</span>
-                          </div>
-                        )}
-                        {owner.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-gray-500" />
-                            <span className="text-gray-600">{owner.phone}</span>
-                          </div>
-                        )}
+                    )}
+                    {owner.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-600 dark:text-gray-400">{owner.phone}</span>
                       </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-600 dark:text-gray-400">Joined {new Date(owner.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                   
-                  <div className="flex flex-col md:items-end justify-between">
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge className="bg-green-500 text-white px-3 py-1 text-sm rounded-full">
-                        {owner.status === 'suspended' ? 'Suspended' : 'Active'}
-                      </Badge>
-                      
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <Users className="h-4 w-4 text-gray-500" />
-                        <span>{owner.memberCount} members</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <User className="h-4 w-4 text-gray-500" />
-                        <span>{owner.trainerCount} trainers</span>
-                      </div>
-                    </div>
+                  <div className="mt-4 flex flex-col gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                      onClick={() => router.push(`/dashboard/super-admin/gym-owners/${owner._id}`)}
+                    >
+                      View Details
+                    </Button>
                     
-                    <div className="mt-4 md:mt-0 flex gap-2">
-                      {owner.status !== 'suspended' && (
-                        <Button
-                          onClick={() => handleSuspendOwner(owner._id)}
-                          variant="destructive"
-                          size="sm"
-                          className="flex items-center gap-1"
-                        >
-                          <AlertCircle className="h-4 w-4" />
-                          <span>Suspend</span>
+                    {owner.status === 'pending' && (
+                      <Link href="/dashboard/super-admin/approvals">
+                        <Button variant="default" className="w-full">
+                          Review Application
                         </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                      >
-                        View Details
-                      </Button>
-                    </div>
+                      </Link>
+                    )}
                   </div>
                 </div>
               </CardContent>

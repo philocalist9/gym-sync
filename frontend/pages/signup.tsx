@@ -65,19 +65,64 @@ export default function Signup() {
       // Log the request for debugging
       console.log('Gym owner signup request:', JSON.stringify(requestBody, null, 2));
       
-      // Use the Next.js API route first (more reliable)
+      // In development mode, use mock endpoint for easier testing
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          console.log('Using mock signup endpoint for development');
+          const mockResponse = await fetch('/api/mock-signup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+          
+          const mockData = await mockResponse.json();
+          
+          if (!mockResponse.ok) {
+            throw new Error(mockData.error || "Mock registration failed");
+          }
+          
+          // Show success message
+          setSuccess("DEVELOPMENT MODE: " + (mockData.message || "Your gym registration has been submitted. In production, you would be notified once approved by a Super Admin."));
+          
+          // Reset form
+          setForm({
+            name: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+            gymName: "",
+            location: "",
+            phone: ""
+          });
+          
+          return;
+        } catch (mockError: any) {
+          console.error("Mock signup failed:", mockError);
+          throw new Error(mockError.message || "Mock registration failed");
+        }
+      }
+      
+      // Production API flow
       try {
-        console.log('Attempting to register via Next.js API route');
+        console.log('Attempting to register via API route');
         const response = await fetch('/api/signup', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(requestBody),
-          // Add additional options to handle network issues
           credentials: 'same-origin',
-          mode: 'same-origin',
         });
+        
+        // Handle non-JSON responses
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const textResponse = await response.text();
+          console.error("Non-JSON response received:", textResponse);
+          throw new Error("Server returned non-JSON response. Please try again later.");
+        }
         
         const data = await response.json();
         
@@ -86,7 +131,7 @@ export default function Signup() {
         }
         
         // Show success message
-        setSuccess("Your gym registration has been submitted. You'll be notified once approved by a Super Admin.");
+        setSuccess("Your gym registration has been submitted successfully. You'll be notified once approved by a Super Admin.");
         
         // Reset form
         setForm({
@@ -98,126 +143,13 @@ export default function Signup() {
           location: "",
           phone: ""
         });
-        
-        return; // Exit early on success
-        
       } catch (apiError: any) {
-        console.error("Next.js API route failed:", apiError);
-        
-        // Try to show demo success in development mode if it's a network error
-        if (process.env.NODE_ENV === 'development' && apiError.message?.includes('fetch')) {
-          console.log('Development mode detected, showing mock success response');
-          
-          // In development mode, show success even if backend is unreachable
-          setSuccess("DEMO MODE: Your gym registration would be submitted in production. You would be notified once approved by a Super Admin.");
-          
-          // Reset form
-          setForm({
-            name: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-            gymName: "",
-            location: "",
-            phone: ""
-          });
-          
-          return; // Exit early with mock success
-        }
-        
-        // If not a network error or not in development, try direct backend call
-        try {
-          console.log('Attempting direct backend API call');
-          const directResponse = await fetch('http://localhost:5000/api/auth/register', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          });
-          
-          // Handle non-JSON responses
-          const contentType = directResponse.headers.get("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
-            // Log the raw text response for debugging
-            const textResponse = await directResponse.text();
-            console.error("Non-JSON response received:", textResponse);
-            throw new Error("Server returned non-JSON response. Please try again later.");
-          }
-          
-          const directData = await directResponse.json();
-          
-          if (!directResponse.ok) {
-            throw new Error(directData.message || "Registration failed");
-          }
-          
-          // Show success message
-          setSuccess("Your gym registration has been submitted. You'll be notified once approved by a Super Admin.");
-          
-          // Reset form
-          setForm({
-            name: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-            gymName: "",
-            location: "",
-            phone: ""
-          });
-          
-        } catch (directError: any) {
-          console.error("Direct API call failed:", directError);
-          
-          // Final fallback - try the mock endpoint for development testing
-          try {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Attempting to use mock signup endpoint as final fallback');
-              const mockResponse = await fetch('/api/mock-signup', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-              });
-              
-              const mockData = await mockResponse.json();
-              
-              if (!mockResponse.ok) {
-                throw new Error(mockData.error || "Mock registration failed");
-              }
-              
-              // Show success message with mock indication
-              setSuccess("MOCK MODE: " + (mockData.message || "Your gym registration has been processed in mock mode. In production, you would be notified once approved."));
-              
-              // Reset form
-              setForm({
-                name: "",
-                email: "",
-                password: "",
-                confirmPassword: "",
-                gymName: "",
-                location: "",
-                phone: ""
-              });
-              
-              return; // Exit early with mock success
-            }
-          } catch (mockError) {
-            console.error("Mock API call failed:", mockError);
-            // Continue to the error handler below
-          }
-          
-          // More specific error messages based on error type
-          if (directError.message?.includes('fetch') || directError.name === 'TypeError') {
-            throw new Error("Unable to connect to the server. Please check your internet connection and try again later.");
-          } else {
-            throw directError;
-          }
-        }
+        console.error("API registration failed:", apiError);
+        throw apiError;
       }
     } catch (err: any) {
       console.error("Registration error:", err);
-      setError(err.message || "Signup failed");
+      setError(err.message || "An error occurred during gym registration. Please try again later.");
     } finally {
       setIsLoading(false);
     }
