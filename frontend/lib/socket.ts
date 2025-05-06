@@ -13,18 +13,18 @@ const getSocketUrl = (): string => {
   // Handle development mode
   if (process.env.NODE_ENV === 'development') {
     // Return the environment URL if available, otherwise fallback to localhost
-    return envUrl || 'http://localhost:5000';
+    return envUrl || 'http://localhost:5001';
   }
   
   // In production, try to infer from window location if possible
   if (typeof window !== 'undefined') {
     // Create a URL based on the current hostname but with the backend port
     const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-    return envUrl || `${protocol}//${window.location.hostname}:5000`;
+    return envUrl || `${protocol}//${window.location.hostname}:5001`;
   }
   
   // Final fallback
-  return envUrl || 'http://localhost:5000';
+  return envUrl || 'http://localhost:5001';
 };
 
 // Improved socket dummy that doesn't throw errors

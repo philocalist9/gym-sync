@@ -86,7 +86,7 @@ export default function ApprovalsPage() {
       const token = localStorage.getItem('token');
       
       // Use the correct API URL
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
       
       // Use direct fetch API with proper authorization
       const fetchResponse = await fetch(`${apiBaseUrl}/api/superadmin/approvals`, {
@@ -134,7 +134,7 @@ export default function ApprovalsPage() {
         throw new Error('No authentication token found');
       }
       
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
       const response = await fetch(`${apiBaseUrl}/api/superadmin/approve/${id}`, {
         method: 'POST',
         headers: {
@@ -187,7 +187,7 @@ export default function ApprovalsPage() {
         throw new Error('No authentication token found');
       }
       
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
       const response = await fetch(`${apiBaseUrl}/api/superadmin/reject/${id}`, {
         method: 'POST',
         headers: {

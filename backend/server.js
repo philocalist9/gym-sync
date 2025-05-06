@@ -11,7 +11,7 @@ const mongoose = require('mongoose');
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
-const superAdminRoutes = require('./routes/superAdmin');
+const superAdminRoutes = require('./routes/superAdminRoutes');
 const gymOwnerRoutes = require('./routes/gymOwner.routes');
 const authController = require('./controllers/auth.controller');
 const memberRoutes = require('./routes/member');
@@ -252,7 +252,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

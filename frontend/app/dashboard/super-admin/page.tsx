@@ -155,7 +155,7 @@ export default function SuperAdminDashboard() {
           throw new Error('No authentication token found');
         }
         
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
         console.log(`Fetching stats from: ${apiBaseUrl}/api/superadmin/stats`);
         
         const controller = new AbortController();
