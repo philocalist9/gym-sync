@@ -32,6 +32,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.7.3",
     "lucide-react": "^0.488.0",
+    "mongodb": "^6.16.0",
     "next": "^15.3.0",
     "next-themes": "^0.4.6",
     "react": "^18.2.0",
@@ -41,9 +42,11 @@
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.2.0",
     "tailwindcss": "^3.3.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.0.0",
