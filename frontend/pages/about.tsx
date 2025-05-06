@@ -1,8 +1,8 @@
 import React from 'react';
-import Link from "next/link";
 import Head from 'next/head';
 import { motion } from "framer-motion";
 import Footer from '../components/Footer';
+import Navbar from '../components/Navbar';
 
 export default function About() {
   const fadeIn = {
@@ -15,73 +15,18 @@ export default function About() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
       <Head>
-        <title>About GymSync - Your All-in-One Gym Companion</title>
+        <title>About GymSync - Modernizing Fitness Management</title>
         <meta name="description" content="Learn about GymSync's mission to modernize the fitness industry with AI-powered solutions." />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-slate-800 shadow-sm">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/">
-                <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  GymSync
-                </h1>
-              </Link>
-            </div>
+      <Navbar />
 
-            <nav className="hidden md:flex space-x-8">
-              <Link 
-                href="/"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-white transition"
-              >
-                Home
-              </Link>
-              <Link 
-                href="/about"
-                className="text-blue-600 dark:text-white font-medium"
-              >
-                About
-              </Link>
-              <Link 
-                href="/contact"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-white transition"
-              >
-                Contact
-              </Link>
-              <Link 
-                href="/dashboard"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-white transition"
-              >
-                Dashboard
-              </Link>
-            </nav>
-
-            <div className="hidden md:flex items-center space-x-4">
-              <Link 
-                href="/login?showLogin=true"
-                className="text-white bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg shadow transition-colors"
-              >
-                Log In
-              </Link>
-              <Link 
-                href="/signup"
-                className="text-gray-700 dark:text-white bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 px-5 py-2 rounded-lg shadow transition-colors"
-              >
-                Sign Up
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main>
+      <main className="pt-20">
         {/* About Section */}
-        <section className="py-20 bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-800 dark:via-blue-900/20 dark:to-indigo-900/20">
+        <section className="py-20 bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-800 dark:via-blue-900/20 dark:to-indigo-900/20 transition-colors duration-300">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial="hidden"

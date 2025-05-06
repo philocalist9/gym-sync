@@ -202,7 +202,7 @@ app.set('activeConnections', activeConnections);
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/gym-owner', gymOwnerRoutes);
 app.use('/api/member', memberRoutes);
 app.use('/api/notifications', notificationRoutes);

@@ -4,7 +4,7 @@ const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 const checkRole = require('../middleware/checkRole');
 
-// ✅ Get All Gym Owners
+// Get All Gym Owners
 router.get('/gym-owners', authMiddleware, checkRole(['superAdmin']), async (req, res) => {
   try {
     const gymOwners = await User.find({ role: 'gymOwner' }).select('-password');
@@ -15,7 +15,7 @@ router.get('/gym-owners', authMiddleware, checkRole(['superAdmin']), async (req,
   }
 });
 
-// ✅ Get Pending Gym Owner Requests
+// Get Pending Gym Owner Requests
 router.get('/approvals', authMiddleware, checkRole(['superAdmin']), async (req, res) => {
   try {
     const pendingOwners = await User.find({ 
@@ -29,7 +29,7 @@ router.get('/approvals', authMiddleware, checkRole(['superAdmin']), async (req, 
   }
 });
 
-// ✅ Approve Gym Owner
+// Approve Gym Owner
 router.post('/approve/:id', authMiddleware, checkRole(['superAdmin']), async (req, res) => {
   try {
     const { id } = req.params;
@@ -51,7 +51,7 @@ router.post('/approve/:id', authMiddleware, checkRole(['superAdmin']), async (re
     const { createAndBroadcastNotification } = require('../controllers/notification.controller');
     await createAndBroadcastNotification(req, {
       recipient: gymOwner._id,
-      sender: req.user.id, // Super admin ID
+      sender: req.user.id,
       type: 'application_approval',
       title: 'Application Approved',
       message: 'Your gym owner application has been approved. You can now manage your gym.',
@@ -65,7 +65,7 @@ router.post('/approve/:id', authMiddleware, checkRole(['superAdmin']), async (re
   }
 });
 
-// ✅ Reject Gym Owner
+// Reject Gym Owner
 router.post('/reject/:id', authMiddleware, checkRole(['superAdmin']), async (req, res) => {
   try {
     const { id } = req.params;
@@ -87,7 +87,7 @@ router.post('/reject/:id', authMiddleware, checkRole(['superAdmin']), async (req
     const { createAndBroadcastNotification } = require('../controllers/notification.controller');
     await createAndBroadcastNotification(req, {
       recipient: gymOwner._id,
-      sender: req.user.id, // Super admin ID
+      sender: req.user.id,
       type: 'application_rejection',
       title: 'Application Rejected',
       message: 'Your gym owner application has been rejected. Please contact support for more information.',
@@ -126,7 +126,7 @@ router.put('/reset/:id', authMiddleware, checkRole(['superAdmin']), async (req, 
   }
 });
 
-// 📊 Overview Stats
+// Overview Stats
 router.get('/stats', authMiddleware, checkRole(['superAdmin']), async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -150,7 +150,7 @@ router.get('/stats', authMiddleware, checkRole(['superAdmin']), async (req, res)
   }
 });
 
-// 👥 Get All Members
+// Get All Members
 router.get('/members', authMiddleware, checkRole(['superAdmin']), async (req, res) => {
   try {
     const members = await User.find({ role: 'member' }).select('-password');
@@ -161,7 +161,7 @@ router.get('/members', authMiddleware, checkRole(['superAdmin']), async (req, re
   }
 });
 
-// 👨‍🏫 Get All Trainers
+// Get All Trainers
 router.get('/trainers', authMiddleware, checkRole(['superAdmin']), async (req, res) => {
   try {
     const trainers = await User.find({ role: 'trainer' }).select('-password');

@@ -1,275 +1,335 @@
-import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
-import { useAuth } from "../context/AuthContext";
-import Link from "next/link";
-import { ROLES } from "../shared/roles";
-
-const roles = ["Member", "Trainer", "Gym Owner", "Super Admin"];
+import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, User, ArrowRight, Loader2, Sun, Moon, LogIn } from 'lucide-react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 export default function Login() {
-  const router = useRouter();
-  const { login, isLoading, error: authError } = useAuth();
-
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    role: "Super Admin", // Default to Super Admin for easy testing
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    role: 'member'
   });
-  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Helper function to redirect based on role
-  const redirectToDashboard = (role: string) => {
-    console.log('Direct redirect based on role:', role);
-    
-    // Use relative paths for better compatibility
-    switch(role) {
-      case 'superAdmin':
-        document.location.href = '/dashboard/super-admin';
-        break;
-      case 'gymOwner':
-        document.location.href = '/dashboard/gym-owner';
-        break;
-      case 'trainer':
-        document.location.href = '/dashboard/trainer';
-        break;
-      case 'member':
-        document.location.href = '/dashboard/member';
-        break;
-      default:
-        document.location.href = '/';
-    }
+  useEffect(() => {
+    // Check system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setIsDarkMode(prefersDark);
+  }, []);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+    document.documentElement.classList.toggle('dark');
   };
 
-  // Check for existing login and redirect if needed
-  useEffect(() => {
-    // Check if this is a fresh login request by URL parameter
-    const isShowLogin = router.query.showLogin === 'true';
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
     
-    // Skip redirect if the showLogin parameter is present
-    if (isShowLogin) {
-      console.log('Showing login page as requested by URL parameter');
-      return;
-    }
-    
-    // Check if user is already logged in
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedToken && storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        console.log('User already logged in:', user);
-        redirectToDashboard(user.role);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('Login attempt:', formData);
       } catch (err) {
-        console.error('Error parsing stored user:', err);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+      setError('Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  }, [router.query]);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    console.log("Login attempt with:", form.email, "as", form.role);
-    
-    // Direct login for Super Admin
-    if (form.email === "admin@gymsync.com" && form.password === "admin123" && form.role === "Super Admin") {
-      console.log("Using Super Admin credentials with direct redirect");
-      
-      // Create superadmin user
-      const superAdmin = {
-        _id: 'admin-id',
-        name: 'Super Admin',
-        email: 'admin@gymsync.com',
-        role: 'superAdmin'
-      };
-      
-      // Store auth data - be thorough to avoid missing data
-      localStorage.setItem('token', 'admin-token');
-      localStorage.setItem('role', 'superAdmin'); // Store role separately too
-      localStorage.setItem('user', JSON.stringify(superAdmin));
-      
-      // Set cookies for App Router components
-      document.cookie = `token=admin-token; path=/; max-age=86400`;
-      document.cookie = `role=superAdmin; path=/; max-age=86400`;
-      
-      console.log("Stored admin user:", superAdmin);
-      console.log("Setting cookies and localStorage complete");
-      
-      // Set a delay to ensure storage is complete
-      setTimeout(() => {
-        // Use direct location change for most reliable navigation
-        console.log("Redirecting to super admin dashboard...");
-        document.location.href = '/dashboard/super-admin';
-      }, 300); // Longer delay for more reliability
-      return;
-    }
-    
-    // Mock login for example accounts
-    if (process.env.NODE_ENV === 'development') {
-      if (
-        (form.role === 'Member' && form.email === 'member@example.com') ||
-        (form.role === 'Trainer' && form.email === 'trainer@example.com') ||
-        (form.role === 'Gym Owner' && form.email === 'owner@example.com') ||
-        (form.role === 'Super Admin' && form.email === 'admin@example.com')
-      ) {
-        if (form.password === 'password') {
-          // Map role
-          const roleMap = {
-            "Gym Owner": "gymOwner",
-            "Trainer": "trainer", 
-            "Member": "member",
-            "Super Admin": "superAdmin"
-          };
-          const dbRole = roleMap[form.role] || form.role;
-          
-          // Create mock user and token
-          const mockUser = {
-            _id: `mock-id-${dbRole}`,
-            name: `Mock ${form.role}`,
-            email: form.email,
-            role: dbRole
-          };
-          
-          const mockToken = `mock-token-${dbRole}`;
-          
-          // Store in both localStorage and cookies
-          localStorage.setItem('token', mockToken);
-          localStorage.setItem('role', dbRole); // Store role separately too
-          localStorage.setItem('user', JSON.stringify(mockUser));
-          
-          // Set cookies for App Router components
-          document.cookie = `token=${mockToken}; path=/; max-age=86400`;
-          document.cookie = `role=${dbRole}; path=/; max-age=86400`;
-          
-          console.log("Using mock login with direct redirect to:", dbRole);
-          console.log("Stored user:", mockUser);
-          console.log("Setting cookies and localStorage complete");
-          
-          // Set a delay to ensure storage is complete
-          setTimeout(() => {
-            // Direct navigation based on role
-            if (dbRole === 'superAdmin') {
-              document.location.href = '/dashboard/super-admin';
-            } else if (dbRole === 'gymOwner') {
-              document.location.href = '/dashboard/gym-owner';
-            } else if (dbRole === 'trainer') {
-              document.location.href = '/dashboard/trainer';
-            } else if (dbRole === 'member') {
-              document.location.href = '/dashboard/member';
-            }
-          }, 300); // Longer delay for more reliability
-          return;
-        } else {
-          setError('Invalid password');
-          return;
-        }
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
       }
     }
-    
-    // Use the context login for other cases
-    try {
-      await login(form.email, form.password, form.role);
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut"
+      }
+    }
+  };
+
+  const inputVariants = {
+    focus: {
+      scale: 1.02,
+      transition: { duration: 0.2 }
+    },
+    blur: {
+      scale: 1,
+      transition: { duration: 0.2 }
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-blue-50">
-      <div className="bg-white p-10 rounded-xl shadow-lg w-full max-w-md">
-        <h2 className="text-3xl font-bold text-center text-blue-600 mb-6">Login to GymSync</h2>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-900' : 'bg-white'} text-gray-900 dark:text-gray-100`}>
+      <Head>
+        <title>Login - GymSync</title>
+        <meta name="description" content="Login to your GymSync account" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
 
-        {(error || authError) && <p className="text-red-500 mb-4 text-sm text-center">{error || authError}</p>}
+      <Navbar />
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input
-            name="email"
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={handleChange}
-            required
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-
-          <input
-            name="password"
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            required
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-
-          <select
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2"
+      <main className="pt-20">
+        <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            className="max-w-7xl w-full grid md:grid-cols-2 gap-8 items-center"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
           >
-            {roles.map((role) => (
-              <option key={role}>{role}</option>
-            ))}
-          </select>
+            {/* Left Column - Branding */}
+            <motion.div
+              variants={itemVariants}
+              className="hidden md:block"
+            >
+              <div className="space-y-8">
+                <motion.div 
+                  className="space-y-4"
+                  variants={itemVariants}
+                >
+                  <motion.h1 
+                    className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                  >
+                    Welcome Back to GymSync
+                  </motion.h1>
+                  <motion.p 
+                    className="text-lg text-gray-600 dark:text-gray-400"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                  >
+                    Your all-in-one solution for modern gym management. Track progress, manage memberships, and optimize your fitness journey.
+                  </motion.p>
+                </motion.div>
 
-          {form.role === "Gym Owner" && (
-            <div className="bg-blue-50 text-blue-700 p-3 rounded-md text-sm">
-              <p>Note: Gym owners require approval by a Super Admin before being able to log in.</p>
-            </div>
-          )}
+                <motion.div 
+                  className="relative"
+                  variants={itemVariants}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <motion.div 
+                    className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 rounded-2xl blur-3xl"
+                    animate={{
+                      scale: [1, 1.1, 1],
+                      opacity: [0.5, 0.8, 0.5]
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  />
+                  <div className="relative bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Demo Accounts</h3>
+                    <div className="space-y-4">
+                      <motion.div
+                        whileHover={{ x: 10 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                      >
+                        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Super Admin</h4>
+                        <p className="text-gray-900 dark:text-white">admin@gymsync.com</p>
+                        <p className="text-gray-900 dark:text-white">admin123</p>
+                      </motion.div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { role: 'Member', email: 'member@example.com' },
+                          { role: 'Trainer', email: 'trainer@example.com' },
+                          { role: 'Gym Owner', email: 'owner@example.com' },
+                          { role: 'Password', email: 'password' }
+                        ].map((item, index) => (
+                          <motion.div
+                            key={item.role}
+                            whileHover={{ x: 10 }}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ 
+                              type: "spring", 
+                              stiffness: 400, 
+                              damping: 10,
+                              delay: index * 0.1 
+                            }}
+                          >
+                            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{item.role}</h4>
+                            <p className="text-gray-900 dark:text-white">{item.email}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 font-semibold disabled:opacity-70"
-          >
-            {isLoading ? "Logging in..." : "Login"}
-          </button>
-        </form>
+            {/* Right Column - Login Form */}
+            <motion.div
+              variants={itemVariants}
+              className="w-full max-w-md mx-auto"
+            >
+              <motion.div 
+                className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex justify-end mb-4">
+                  <motion.button
+                    onClick={toggleDarkMode}
+                    className="p-2 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    {isDarkMode ? (
+                      <Sun className="w-5 h-5" />
+                    ) : (
+                      <Moon className="w-5 h-5" />
+                    )}
+                  </motion.button>
+                </div>
 
-        <p className="text-sm text-center mt-4">
-          Don't have an account?{" "}
-          <Link href="/signup" className="text-blue-600 font-medium hover:underline">
-            Register Gym
-          </Link>
-        </p>
+                <motion.div 
+                  className="text-center mb-8"
+                  variants={itemVariants}
+                >
+                  <motion.h2 
+                    className="text-3xl font-bold text-gray-900 dark:text-white mb-2"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    Login to GymSync
+                  </motion.h2>
+                  <motion.p 
+                    className="text-gray-600 dark:text-gray-400"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                  >
+                    Enter your credentials to access your account
+                  </motion.p>
+                </motion.div>
 
-        <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-500">
-          <p className="font-semibold mb-1">Super Admin account:</p>
-          <div>
-            <p className="font-medium">Email: admin@gymsync.com</p>
-            <p className="font-medium">Password: admin123</p>
-          </div>
-          
-          <p className="font-semibold mt-3 mb-1">Demo accounts:</p>
-          <div className="grid grid-cols-2 gap-1">
-            <div>
-              <p className="font-medium">Member:</p>
-              <p>member@example.com</p>
-            </div>
-            <div>
-              <p className="font-medium">Trainer:</p>
-              <p>trainer@example.com</p>
-            </div>
-            <div>
-              <p className="font-medium">Gym Owner:</p>
-              <p>owner@example.com</p>
-            </div>
-            <div>
-              <p className="font-medium">Super Admin:</p>
-              <p>admin@example.com</p>
-            </div>
-          </div>
-          <p className="mt-2 text-center">Password for demo accounts: <span className="font-medium">password</span></p>
+                <motion.form 
+                  onSubmit={handleSubmit}
+                  className="space-y-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email
+                    </label>
+                    <motion.input
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Password
+                    </label>
+                    <motion.input
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="password"
+                      id="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Role
+                    </label>
+                    <motion.select
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      id="role"
+                      name="role"
+                      value={formData.role}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">Select Role</option>
+                      <option value="member">Member</option>
+                      <option value="trainer">Trainer</option>
+                      <option value="gymOwner">Gym Owner</option>
+                      <option value="superAdmin">Super Admin</option>
+                    </motion.select>
+                  </div>
+
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg shadow-lg transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="w-5 h-5" />
+                        Login
+                      </>
+                    )}
+                  </motion.button>
+
+                  <div className="text-center">
+                    <Link href="/register" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                      Don't have an account? Register here
+                    </Link>
+                  </div>
+                </motion.form>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </div>
-      </div>
+      </main>
+
+      <Footer />
     </div>
   );
 } 
