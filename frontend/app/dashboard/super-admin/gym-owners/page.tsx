@@ -53,7 +53,7 @@ export default function GymOwnersPage() {
       }
       
       // Use the correct API URL
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
       
       const response = await fetch(`${apiBaseUrl}/api/superadmin/owners`, {
         method: 'GET',

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,8 +17,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLES } from '@/shared/roles';
+import { api } from '@/lib/axios';
 
-// Dashboard statistic card component
+// Keep your existing StatCard and ActionCard components here
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -60,7 +62,6 @@ const StatCard = ({ title, value, description, icon, trend, trendValue, isLoadin
   </Card>
 );
 
-// Quick action card component
 interface ActionCardProps {
   title: string;
   description: string;
@@ -87,7 +88,7 @@ const ActionCard = ({ title, description, icon, href, color }: ActionCardProps) 
   </Link>
 );
 
-export default function SuperAdminDashboard() {
+export default function DashboardContent() {
   const { user } = useAuth();
   const [stats, setStats] = useState({
     totalOwners: 0,
@@ -97,24 +98,23 @@ export default function SuperAdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const router = useRouter();
 
-  // Check for proper authentication and role
   useEffect(() => {
     const validateAccess = () => {
       const token = localStorage.getItem('token');
       if (!token) {
         console.log("SuperAdmin: No token found, redirecting to login");
-        window.location.href = '/login';
+        router.push('/login');
         return false;
       }
 
-      // Check if user has Super Admin role
       const role = localStorage.getItem('role');
       const userRole = user?.role || role;
       
       if (userRole !== 'superAdmin' && userRole !== ROLES.SUPER_ADMIN) {
         console.log("SuperAdmin: Not authorized, user role:", userRole);
-        window.location.href = '/login';
+        router.push('/login');
         return false;
       }
       
@@ -124,77 +124,18 @@ export default function SuperAdminDashboard() {
     if (!validateAccess()) {
       return;
     }
-  }, [user]);
-
-  // Set default values after a timeout to prevent indefinite loading
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.log("Stats fetch timeout - using fallback data");
-        setStats({
-          totalOwners: 14,
-          pendingOwners: 3,
-          approvedOwners: 10,
-          rejectedOwners: 1
-        });
-        setLoading(false);
-      }
-    }, 5000); // 5 seconds timeout
-
-    return () => clearTimeout(timeoutId);
-  }, [loading]);
+  }, [user, router]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          console.log('No auth token - setting fallback data');
-          throw new Error('No authentication token found');
+        const response = await api.get('/api/superadmin/stats');
+        if (response.data) {
+          setStats(response.data);
         }
-        
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-        console.log(`Fetching stats from: ${apiBaseUrl}/api/superadmin/stats`);
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-
-        const response = await fetch(`${apiBaseUrl}/api/superadmin/stats`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          credentials: 'include',
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          throw new Error(`API request failed with status ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log("Stats data received:", data);
-        setStats(data);
-      } catch (err: any) {
-        console.error('Error fetching stats:', err);
-        if (err.name === 'AbortError') {
-          setError('Request timed out. Using default data.');
-        } else {
-          setError(err.message);
-        }
-        
-        // Always use fallback data if there's an error
-        setStats({
-          totalOwners: 14,
-          pendingOwners: 3,
-          approvedOwners: 10,
-          rejectedOwners: 1
-        });
+      } catch (error: any) {
+        console.error('Error fetching stats:', error);
+        setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
@@ -209,7 +150,6 @@ export default function SuperAdminDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Welcome, {user?.name || 'Super Admin'}</h1>
@@ -234,8 +174,7 @@ export default function SuperAdminDashboard() {
           </Link>
         </div>
       </div>
-      
-      {/* Error message */}
+
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -245,8 +184,7 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       )}
-      
-      {/* Stats cards */}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Total Gym Owners" 
@@ -281,8 +219,7 @@ export default function SuperAdminDashboard() {
           isLoading={loading}
         />
       </div>
-      
-      {/* Quick actions */}
+
       <div>
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -309,47 +246,6 @@ export default function SuperAdminDashboard() {
           />
         </div>
       </div>
-      
-      {/* Recent activity */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-        <Card className="border border-gray-200 dark:border-gray-800">
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div className="flex gap-4 items-start pb-4 border-b border-gray-100 dark:border-gray-800">
-                <div className="p-2 bg-green-100 rounded-full">
-                  <ShieldCheck className="h-4 w-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="font-medium">New gym owner approved</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">You approved FitLife Gym's application</p>
-                  <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex gap-4 items-start pb-4 border-b border-gray-100 dark:border-gray-800">
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <Users className="h-4 w-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium">New application received</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">PowerFit Studios submitted a new application</p>
-                  <p className="text-xs text-gray-400 mt-1">Yesterday</p>
-                </div>
-              </div>
-              <div className="flex gap-4 items-start">
-                <div className="p-2 bg-purple-100 rounded-full">
-                  <BarChart2 className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Monthly report generated</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">June 2023 platform analytics are ready to view</p>
-                  <p className="text-xs text-gray-400 mt-1">2 days ago</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
-}
+} 

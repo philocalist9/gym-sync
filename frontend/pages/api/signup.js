@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     }
 
     // Determine the API URL with better logging
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
     const apiEndpoint = `${apiBaseUrl}/api/auth/register`;
     
     console.log('Making gym owner registration request to:', apiEndpoint);

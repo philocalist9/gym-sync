@@ -1,0 +1,175 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const { verifyToken } = require('../middleware/auth');
+const checkRole = require('../middleware/checkRole');
+
+// ✅ Get All Gym Owners
+router.get('/gym-owners', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const gymOwners = await User.find({ role: 'gymOwner' }).select('-password');
+    res.json(gymOwners);
+  } catch (err) {
+    console.error('Error fetching gym owners:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ✅ Get Pending Gym Owner Requests
+router.get('/approvals', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const pendingOwners = await User.find({ 
+      role: 'gymOwner',
+      status: 'pending'
+    }).select('-password');
+    res.json(pendingOwners);
+  } catch (err) {
+    console.error('Error fetching pending gym owners:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ✅ Approve Gym Owner
+router.post('/approve/:id', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const gymOwner = await User.findById(id);
+    
+    if (!gymOwner) {
+      return res.status(404).json({ message: 'Gym owner not found' });
+    }
+    
+    if (gymOwner.role !== 'gymOwner') {
+      return res.status(400).json({ message: 'User is not a gym owner' });
+    }
+
+    gymOwner.status = 'approved';
+    gymOwner.isApproved = true;
+    await gymOwner.save();
+    
+    // Create notification for the gym owner
+    const { createAndBroadcastNotification } = require('../controllers/notification.controller');
+    await createAndBroadcastNotification(req, {
+      recipient: gymOwner._id,
+      sender: req.user.id, // Super admin ID
+      type: 'application_approval',
+      title: 'Application Approved',
+      message: 'Your gym owner application has been approved. You can now manage your gym.',
+      entityId: gymOwner._id
+    });
+    
+    res.json({ message: 'Gym owner approved successfully' });
+  } catch (err) {
+    console.error('Error approving gym owner:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ✅ Reject Gym Owner
+router.post('/reject/:id', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const gymOwner = await User.findById(id);
+    
+    if (!gymOwner) {
+      return res.status(404).json({ message: 'Gym owner not found' });
+    }
+    
+    if (gymOwner.role !== 'gymOwner') {
+      return res.status(400).json({ message: 'User is not a gym owner' });
+    }
+
+    gymOwner.status = 'rejected';
+    gymOwner.isApproved = false;
+    await gymOwner.save();
+    
+    // Create notification for the gym owner
+    const { createAndBroadcastNotification } = require('../controllers/notification.controller');
+    await createAndBroadcastNotification(req, {
+      recipient: gymOwner._id,
+      sender: req.user.id, // Super admin ID
+      type: 'application_rejection',
+      title: 'Application Rejected',
+      message: 'Your gym owner application has been rejected. Please contact support for more information.',
+      entityId: gymOwner._id
+    });
+    
+    res.json({ message: 'Gym owner rejected successfully' });
+  } catch (err) {
+    console.error('Error rejecting gym owner:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reset Gym Owner to Pending
+router.put('/reset/:id', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const gymOwner = await User.findById(id);
+    
+    if (!gymOwner) {
+      return res.status(404).json({ message: 'Gym owner not found' });
+    }
+    
+    if (gymOwner.role !== 'gymOwner') {
+      return res.status(400).json({ message: 'User is not a gym owner' });
+    }
+
+    gymOwner.status = 'pending';
+    gymOwner.isApproved = false;
+    await gymOwner.save();
+    
+    res.json({ message: 'Gym owner reset to pending successfully' });
+  } catch (err) {
+    console.error('Error resetting gym owner to pending:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 📊 Overview Stats
+router.get('/stats', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalGymOwners = await User.countDocuments({ role: 'gymOwner' });
+    const pendingGymOwners = await User.countDocuments({ role: 'gymOwner', status: 'pending' });
+    const approvedGymOwners = await User.countDocuments({ role: 'gymOwner', status: 'approved' });
+    const totalMembers = await User.countDocuments({ role: 'member' });
+    const totalTrainers = await User.countDocuments({ role: 'trainer' });
+
+    res.json({
+      totalUsers,
+      totalGymOwners,
+      pendingGymOwners,
+      approvedGymOwners,
+      totalMembers,
+      totalTrainers,
+    });
+  } catch (err) {
+    console.error('Error fetching stats:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 👥 Get All Members
+router.get('/members', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const members = await User.find({ role: 'member' }).select('-password');
+    res.json(members);
+  } catch (err) {
+    console.error('Error fetching members:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 👨‍🏫 Get All Trainers
+router.get('/trainers', verifyToken, checkRole(['superAdmin']), async (req, res) => {
+  try {
+    const trainers = await User.find({ role: 'trainer' }).select('-password');
+    res.json(trainers);
+  } catch (err) {
+    console.error('Error fetching trainers:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+module.exports = router; 
